@@ -40,6 +40,7 @@ const userSchema = new mongoose.Schema ({
     email: String,
     password: String,
     googleId: String,
+    secret: String,
 });
 
 //Method of mongoose.encryption
@@ -68,7 +69,6 @@ passport.use(new GoogleStrategy({
         callbackURL: "http://localhost:3000/auth/google/secrets"
     },
     function(accessToken, refreshToken, profile, done) {
-        console.log(profile)
         User.findOrCreate({ googleId: profile.id }, function(err, user) {
             return done(err, user);
         });
@@ -98,11 +98,15 @@ app.get('/register', (req, res) => {
 });
 
 app.get('/secrets', (req, res) => {
-    if (req.isAuthenticated()) {
-        res.render('secrets');
-    } else {
-        res.redirect('/login');
-    }
+    User.find({ "secret": {$ne:true}}, (err, foundUsers) => {
+        if (err) {
+            console.log(err)
+        } else {
+            if (foundUsers) {
+                res.render("secrets", {userWithSecrets: foundUsers})
+            }
+        }
+    })
 });
 
 app.get('/logout', (req, res) => {
@@ -180,6 +184,21 @@ app.post('/login', (req, res) => {
     //         });
     //     }
     // });
+});
+
+app.post('/submit', (req, res) => {
+    const submittedSecret = req.body.secret;
+
+    User.findById(req.user.id, (err, foundUser) => {
+        if(err) {
+            console.log(err);
+        } else {
+            if (foundUser) {
+                foundUser.secret = submittedSecret;
+                foundUser.save(() => res.redirect('/secrets'));
+            }
+        }
+    });
 });
 
 app.listen(3000 || process.env.PORT, () => {
